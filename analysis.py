@@ -1,4 +1,4 @@
-from utils import check_lists, check_heuristics, check_whois, check_ssl, check_levenshtein, analyze_html
+from utils import check_lists, check_heuristics, check_whois, check_ssl, check_levenshtein, analyze_html, get_hostname, check_dns_dinamico, detecta_redirecionamento
 from datetime import datetime
 
 def analyze_url(url):
@@ -10,6 +10,7 @@ def analyze_url(url):
         "Certificado SSL": check_ssl(url),
         "Similaridade com marcas conhecidas": check_levenshtein(url),
         "Conteúdo HTML": analyze_html(url),
+        "Redirecionamento suspeito": detecta_redirecionamento(url),
     }
 
     score = calcular_score(resultado)
@@ -62,6 +63,12 @@ def calcular_score(resultado):
     elif sum(1 for d in levenshteins if 0 < d <= 3) >= 2:
         risco += 1.5
     elif any(0 < d <= 3 for d in levenshteins):
+        risco += 1
+
+    if check_dns_dinamico(get_hostname(resultado["URL"])):
+        risco += 1
+
+    if resultado.get("Redirecionamento suspeito"):
         risco += 1
 
 

@@ -158,3 +158,16 @@ def analyze_html(url):
         return {"Formulários": len(forms), "Pede dados sensíveis": sensitive}
     except:
         return {"Formulários": 0, "Pede dados sensíveis": False}
+    
+    
+def check_dns_dinamico(hostname):
+    dinamicos = ['no-ip', 'dyndns', 'duckdns', 'hopto.org', 'freeddns.org', 'myftp.biz']
+    return any(d in hostname for d in dinamicos)
+
+
+def detecta_redirecionamento(url):
+    try:
+        r = requests.get(url, timeout=5, allow_redirects=True)
+        return len(r.history) > 1
+    except:
+        return False
