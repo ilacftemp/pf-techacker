@@ -1,11 +1,28 @@
-from utils import check_lists, check_heuristics, check_whois, check_ssl, check_levenshtein, analyze_html, get_hostname, check_dns_dinamico, detecta_redirecionamento, check_all_phishing_domains
+from utils import (check_lists, check_heuristics, check_whois, check_ssl, check_levenshtein, analyze_html, get_hostname, check_dns_dinamico, detecta_redirecionamento)
 from datetime import datetime
 
+# Lista de domínios reconhecidos como confiáveis
+WHITELIST_DOMINIOS_CONFIAVEIS = {
+    "google.com", "facebook.com", "youtube.com", "amazon.com", "microsoft.com",
+    "apple.com", "paypal.com", "netflix.com", "twitter.com", "instagram.com",
+    "linkedin.com", "adobe.com", "icloud.com", "dropbox.com", "whatsapp.com",
+    "tiktok.com", "bing.com", "spotify.com", "salesforce.com", "zoom.us"
+}
+
 def analyze_url(url):
+    hostname = get_hostname(url)
+
+    if hostname in WHITELIST_DOMINIOS_CONFIAVEIS:
+        return {
+            "URL": url,
+            "Domínio": hostname,
+            "Motivo": "Este domínio consta em uma lista branca de domínios globalmente reconhecidos como seguros.",
+            "Score de Risco": "Baixo (0) — domínio reconhecido como confiável, demais testes ignorados."
+        }
+
     resultado = {
         "URL": url,
         "Verificação em listas de phishing": check_lists(url),
-        "Verificação na base de dados de phishing": check_all_phishing_domains(url),
         "Heurísticas básicas": check_heuristics(url),
         "WHOIS": check_whois(url),
         "Certificado SSL": check_ssl(url),
@@ -27,63 +44,68 @@ def is_domain_new(data_str):
         return False
 
 def calcular_score(resultado):
-    risco = 0
+    risco_total = 0
+    riscos_parciais = {}
 
-    if any(resultado["Verificação em listas de phishing"].values()):
-        risco += 2
+    def add(cat, valor):
+        nonlocal risco_total
+        riscos_parciais[cat] = valor
+        risco_total += valor
 
-    if resultado["Verificação na base de dados de phishing"]:
-        risco += 2
+    # Listas de phishing
+    add("Verificação em listas de phishing", 2 if any(resultado["Verificação em listas de phishing"].values()) else 0)
 
+    # Heurísticas
     heuristicas = resultado["Heurísticas básicas"]
-    if heuristicas.get("Números no domínio", False):
-        risco += 0.5
-    if heuristicas.get("Subdomínios excessivos", False):
-        risco += 1.5
-    if heuristicas.get("Caracteres suspeitos", False):
-        risco += 1
+    risco_h = 0
+    if heuristicas.get("Números no domínio", False): risco_h += 0.5
+    if heuristicas.get("Subdomínios excessivos", False): risco_h += 1.5
+    if heuristicas.get("Caracteres suspeitos", False): risco_h += 1
+    add("Heurísticas básicas", risco_h)
 
+    # WHOIS
     data_criacao = resultado["WHOIS"].get("Data de criação", "")
-    if is_domain_new(data_criacao):
-        risco += 1
-
-    if resultado["Certificado SSL"].get("Emissor") == "Sem certificado":
-        risco += 2
-
-    if resultado["Certificado SSL"].get("Risco do Emissor") == "alto":
-        risco += 1
-    elif resultado["Certificado SSL"].get("Risco do Emissor") == "médio":
-        risco += 0.5
-
-    if resultado["Certificado SSL"].get("Expirado"):
-        risco += 2
-
-    form_data = resultado["Conteúdo HTML"]
-
-    if form_data.get("Formulários", 0) > 0:
-        risco += 0.5
-
-    if form_data.get("Pede dados sensíveis"):
-        risco += 2
-
-    levenshteins = resultado["Similaridade com marcas conhecidas"].values()
-    if any(d == 1 for d in levenshteins):
-        risco += 2
-    elif sum(1 for d in levenshteins if 0 < d <= 3) >= 2:
-        risco += 1.5
-    elif any(0 < d <= 3 for d in levenshteins):
-        risco += 1
-
-    if check_dns_dinamico(get_hostname(resultado["URL"])):
-        risco += 1
-
-    if resultado.get("Redirecionamento suspeito"):
-        risco += 1
-
-
-    if risco >= 4:
-        return "Alto"
-    elif risco >= 2:
-        return "Médio"
+    if data_criacao in ("", "Indisponível", "Erro", "Não encontrada"):
+        add("WHOIS", 0.5)
     else:
-        return "Baixo"
+        add("WHOIS", 1 if is_domain_new(data_criacao) else 0)
+
+    # SSL
+    ssl = resultado["Certificado SSL"]
+    risco_ssl = 0
+    if ssl.get("Emissor") == "Sem certificado": risco_ssl += 2
+    if ssl.get("Risco do Emissor") == "alto": risco_ssl += 1
+    elif ssl.get("Risco do Emissor") == "médio": risco_ssl += 0.5
+    if ssl.get("Expirado"): risco_ssl += 2
+    add("Certificado SSL", risco_ssl)
+
+    # HTML
+    form_data = resultado["Conteúdo HTML"]
+    risco_html = 0
+    if form_data.get("Formulários", 0) > 0: risco_html += 0.5
+    if form_data.get("Pede dados sensíveis"): risco_html += 2
+    add("Conteúdo HTML", risco_html)
+
+    # Levenshtein
+    levenshteins = resultado["Similaridade com marcas conhecidas"].values()
+    risco_lev = 0
+    if any(d in (1, 2, 3) for d in levenshteins): risco_lev += 2
+    elif sum(1 for d in levenshteins if 0 < d <= 3) >= 2: risco_lev += 1.5
+    elif any(0 < d <= 3 for d in levenshteins): risco_lev += 1
+    add("Similaridade com marcas conhecidas", risco_lev)
+
+    # DNS dinâmico
+    add("DNS dinâmico", 1 if check_dns_dinamico(get_hostname(resultado["URL"])) else 0)
+
+    # Redirecionamento
+    add("Redirecionamento suspeito", 1 if resultado.get("Redirecionamento suspeito") else 0)
+
+    # Atribuir os riscos parciais no resultado
+    resultado["Riscos Parciais"] = riscos_parciais
+
+    if risco_total >= 4:
+        return f"Alto ({risco_total})"
+    elif risco_total >= 2:
+        return f"Médio ({risco_total})"
+    else:
+        return f"Baixo ({risco_total})"
