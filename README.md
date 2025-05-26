@@ -17,6 +17,7 @@ Aplicação interativa que analisa URLs suspeitas com base em múltiplas verific
 
 ## Estrutura do projeto
 
+```bash
 PF-TECHACKER/
 ├── main.py             # Interface Streamlit
 ├── analysis.py         # Logica de analise de risco
@@ -26,6 +27,7 @@ PF-TECHACKER/
 ├── template.env        # Exemplo de .env para distribuicao
 ├── historico.csv       # Exportacoes da sessao
 └── README.md
+```
 
 
 ## Como executar
