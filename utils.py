@@ -48,11 +48,12 @@ def check_google_safebrowsing(url, api_key):
 
 def check_all_phishing_domains(url):
     try:
-        with open('phishing_domains.json', 'r') as file:
-            phishing_domains = json.load(file)
+        with open('ALL-phishing-domains.txt', 'r') as file:
+            phishing_domains = file.read().splitlines()
         hostname = get_hostname(url)
         return hostname in phishing_domains
-    except Exception as e:
+    except FileNotFoundError:
+        print("Arquivo ALL-phishing-domains.txt não encontrado.")
         return False
 
 
