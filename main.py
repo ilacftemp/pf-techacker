@@ -8,7 +8,7 @@ st.title("Detector de Phishing")
 
 explicacoes = {
     "Verificação em listas de phishing": (
-        "Confere se a URL aparece no Google Safe Browsing, que contém um banco de dados com URLs suspeitas ou conhecidamente perigosas. "
+        "Confere se a URL aparece no Google Safe Browsing, que contém um banco de dados com URLs suspeitas ou conhecidamente perigosas, além de checar se aparece na lista ALL-phishing-domains do repositório Phishing.Database. "
         "URLs já denunciadas têm alta probabilidade de phishing."
     ),
     "Heurísticas básicas": (

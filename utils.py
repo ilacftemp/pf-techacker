@@ -44,12 +44,25 @@ def check_google_safebrowsing(url, api_key):
         return bool(result.get("matches"))
     except Exception as e:
         return False
-    
+
+
+def check_all_phishing_domains(url):
+    try:
+        with open('phishing_domains.json', 'r') as file:
+            phishing_domains = json.load(file)
+        hostname = get_hostname(url)
+        return hostname in phishing_domains
+    except Exception as e:
+        return False
+
 
 def check_lists(url):
     google_safe = check_google_safebrowsing(url, GSB_API_KEY)
+    all_phishing = check_all_phishing_domains(url)
+
     return {
-        "Google Safe Browsing": google_safe
+        "Google Safe Browsing": google_safe,
+        "ALL-phishing-domains": all_phishing
     }
 
 
@@ -142,7 +155,13 @@ def check_ssl(url):
 
 
 def check_levenshtein(url):
-    dominios_reais = ["google.com", "paypal.com", "apple.com", "microsoft.com"]
+    dominios_reais = [
+        "google.com", "paypal.com", "apple.com", "microsoft.com",
+        "facebook.com", "amazon.com", "netflix.com", "twitter.com",
+        "youtube.com", "instagram.com", "linkedin.com", "adobe.com",
+        "icloud.com", "dropbox.com", "whatsapp.com", "tiktok.com",
+        "bing.com", "spotify.com", "salesforce.com", "zoom.us"
+    ]
     dominio = get_hostname(url)
     return {marca: distance(dominio, marca) for marca in dominios_reais}
 

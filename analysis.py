@@ -1,10 +1,11 @@
-from utils import check_lists, check_heuristics, check_whois, check_ssl, check_levenshtein, analyze_html, get_hostname, check_dns_dinamico, detecta_redirecionamento
+from utils import check_lists, check_heuristics, check_whois, check_ssl, check_levenshtein, analyze_html, get_hostname, check_dns_dinamico, detecta_redirecionamento, check_all_phishing_domains
 from datetime import datetime
 
 def analyze_url(url):
     resultado = {
         "URL": url,
         "Verificação em listas de phishing": check_lists(url),
+        "Verificação na base de dados de phishing": check_all_phishing_domains(url),
         "Heurísticas básicas": check_heuristics(url),
         "WHOIS": check_whois(url),
         "Certificado SSL": check_ssl(url),
@@ -31,7 +32,15 @@ def calcular_score(resultado):
     if any(resultado["Verificação em listas de phishing"].values()):
         risco += 2
 
-    if sum(valor is True for valor in resultado["Heurísticas básicas"].values()) >= 2:
+    if resultado["Verificação na base de dados de phishing"]:
+        risco += 2
+
+    heuristicas = resultado["Heurísticas básicas"]
+    if heuristicas.get("Números no domínio", False):
+        risco += 0.5
+    if heuristicas.get("Subdomínios excessivos", False):
+        risco += 1.5
+    if heuristicas.get("Caracteres suspeitos", False):
         risco += 1
 
     data_criacao = resultado["WHOIS"].get("Data de criação", "")
@@ -39,7 +48,7 @@ def calcular_score(resultado):
         risco += 1
 
     if resultado["Certificado SSL"].get("Emissor") == "Sem certificado":
-        risco += 1
+        risco += 2
 
     if resultado["Certificado SSL"].get("Risco do Emissor") == "alto":
         risco += 1
@@ -47,7 +56,7 @@ def calcular_score(resultado):
         risco += 0.5
 
     if resultado["Certificado SSL"].get("Expirado"):
-        risco += 1
+        risco += 2
 
     form_data = resultado["Conteúdo HTML"]
 
